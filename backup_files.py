@@ -50,9 +50,7 @@ if __name__ == "__main__":
 
     with settings(host_string=options.hostname):
         if not files.exists(TMPDIR):
-            print "mkdir %s" % TMPDIR
             sudo("mkdir %s" % TMPDIR)
-        print "tar -C / -cf %s %s" % (tmpfile, options.path.lstrip("/"))
         sudo("tar -C / -cf %s %s" % (tmpfile, options.path.lstrip("/")))
 
         sudo("gzip %s" % tmpfile)
