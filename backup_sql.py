@@ -36,6 +36,7 @@ if __name__ == "__main__":
     parser.add_option("-i", "--keyfile", dest="keyfile", help="Path to ssh key to server", metavar="<pem>", default=DEFAULT_KEY)
     parser.add_option("-t", "--tmpdir", dest="tmpdir", help="Remote tmp path to use when dumping/compressing", metavar="<tmpdir>", default=DEFAULT_TMPDIR)
     parser.add_option("-P", "--port", dest="port", help="SSH port to use to access remote system.", metavar="<port>", default=DEFAULT_PORT)
+    parser.add_option("-e", "--events", action="store_false", dest="events", help="Backup MySQL events", default=False)
 
     (options, args) = parser.parse_args()
 
@@ -54,7 +55,11 @@ if __name__ == "__main__":
     with settings(host_string=options.hostname):
         if not files.exists(TMPDIR):
             sudo("mkdir %s" % TMPDIR)
-        sudo("mysqldump -u %s --routines --quick --single-transaction -p%s %s > %s" % (options.sqluser, options.sqlpass, options.db, tmpfile))
+        c = "mysqldump"
+        if options.events:
+            c += " --events"
+        c += " -u %s --routines --quick --single-transaction -p%s %s > %s" % (options.sqluser, options.sqlpass, options.db, tmpfile)
+        sudo(c)
 
         sudo("gzip %s" % tmpfile)
 
