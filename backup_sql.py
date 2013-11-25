@@ -9,6 +9,7 @@
 import os
 import sys
 import datetime
+import subprocess
 import fabric.state
 from fabric.api import *
 from fabric.contrib import files
@@ -26,6 +27,17 @@ DEFAULT_PORT = 22
 
 fabric.state.output['running'] = False
 
+def cmd(command, get_ret = True, get_err = True, filter_warnings = False):
+    proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output = proc.stdout.read()
+    error = ""
+    if get_err:
+        error = proc.stderr.read()
+    returncode = 0
+    if get_ret:
+        returncode = proc.wait()
+    return returncode, output, error
+
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-l", "--hostname", dest="hostname", help="hostname of server which holds DB from which to backup", metavar="<hostname>")
@@ -36,13 +48,15 @@ if __name__ == "__main__":
     parser.add_option("-i", "--keyfile", dest="keyfile", help="Path to ssh key to server", metavar="<pem>", default=DEFAULT_KEY)
     parser.add_option("-t", "--tmpdir", dest="tmpdir", help="Remote tmp path to use when dumping/compressing", metavar="<tmpdir>", default=DEFAULT_TMPDIR)
     parser.add_option("-P", "--port", dest="port", help="SSH port to use to access remote system.", metavar="<port>", default=DEFAULT_PORT)
-    parser.add_option("-e", "--events", action="store_false", dest="events", help="Backup MySQL events", default=False)
+    parser.add_option("-e", "--events", action="store_true", dest="events", help="Backup MySQL events", default=False)
+    parser.add_option("--legacy", dest="legacy", help="Use scp rather than fabric's get() to download files", action="store_true")
 
     (options, args) = parser.parse_args()
 
     if not options.hostname or not options.sqluser or not options.sqlpass or not options.db:
         parser.error("You must specify all of -l, -s, -p -d arguments")
 
+    env.timeout = 100000000
     env.user = options.user
     env.key_filename = "%s/%s" % (KEY_PATH, options.keyfile)
     env.port = options.port
@@ -67,7 +81,10 @@ if __name__ == "__main__":
         backup_target = "%s/%s" % (BACKUP_DIR, options.hostname)
         if not os.path.exists(backup_target):
             os.mkdir(backup_target)
-        get("%s.gz" % tmpfile, backup_target)
+        if options.legacy:
+            r,o,e = cmd("scp -i %s %s@%s:%s.gz %s" % (env.key_filename, options.user, options.hostname, tmpfile, backup_target))
+        else:
+            get("%s.gz" % tmpfile, backup_target)
 
         sudo("rm %s.gz" % tmpfile)
 
