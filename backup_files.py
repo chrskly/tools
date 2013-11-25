@@ -9,6 +9,7 @@
 import os
 import sys
 import datetime
+import subprocess
 import fabric.state
 from fabric.api import *
 from fabric.contrib import files
